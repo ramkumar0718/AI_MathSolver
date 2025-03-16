@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI MathSolver</title>
+    <link rel="icon" href="{{ url_for('static', path='images/icon.png') }}" type="image/png">
+    <style>
+        body {
+            margin: 0;
+            background-color: #000;
+        }
+
+        .toolbar {
+            margin: 10px;
+            display: flex;
+            justify-content: space-evenly;
+            border-bottom: 4px solid white;
+            flex-wrap: wrap;
+            padding-bottom: 8px;
+        }
+
+        .color-button {
+            width: 35px;
+            height: 35px;
+            border: 3px solid #fff;
+            cursor: pointer;
+            margin: 5px;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+
+        .color-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 5px #fff;
+        }
+
+        #drawingCanvas {
+            width: 100%;
+            height: 89vh;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin: 3px 5px;
+            border: none;
+            border-radius: 5px;
+            background-color: #808080;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 15px;
+        }
+
+        button:hover {
+            background-color: #666;
+        }
+
+        #penSize {
+            margin-left: 10px;
+        }
+
+        #penSizeValue {
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
+        #rgbColor {
+            margin-left: 10px;
+            padding: 5px;
+        }
+
+        /* Responsive for mobile devices */
+        @media (max-width: 768px) {
+            .color-button {
+                width: 30px;
+                height: 30px;
+            }
+
+            button {
+                font-size: 10px;
+                padding: 8px 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .toolbar {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            button {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+
+            .color-button {
+                width: 30px;
+                height: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div><button id="clearButton">Clear</button></div>
+        <div>
+            <button id="undoButton">Undo</button>
+            <button id="redoButton">Redo</button>
+        </div>
+        <div>
+            <button class="color-button" style="background-color: #ffffff;" data-color="#ffffff"></button>
+            <button class="color-button" style="background-color: #ff0000;" data-color="#ff0000"></button>
+            <button class="color-button" style="background-color: #00ff00;" data-color="#00ff00"></button>
+            <button class="color-button" style="background-color: #0000ff;" data-color="#0000ff"></button>
+            <button class="color-button" style="background-color: #ffff00;" data-color="#ffff00"></button>
+            <button class="color-button" style="background-color: #ff00ff;" data-color="#ff00ff"></button>
+            <button class="color-button" style="background-color: #00ffff;" data-color="#00ffff"></button>
+            <input type="color" id="rgbColor" value="#000000" />
+        </div>
+        <div>
+            <button id="eraserButton">Eraser</button>
+            <input type="range" id="penSize" min="1" max="25" value="5" />
+        </div>
+        <div><button id="calcButton">Calculate</button></div>
+    </div>
+    <canvas id="drawingCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("drawingCanvas");
+        const ctx = canvas.getContext("2d");
+        const clearButton = document.getElementById("clearButton");
+        const undoButton = document.getElementById("undoButton");
+        const redoButton = document.getElementById("redoButton");
+        const rgbColor = document.getElementById("rgbColor");
+        const eraserButton = document.getElementById("eraserButton");
+        const penSizeInput = document.getElementById("penSize");
+        const calcButton = document.getElementById("calcButton");
+
+        window.onload = function(){
+            ctx.font = "20px Arial";
+            ctx.fillStyle = "white";
+        };
+
+        let drawing = false;
+        let currentColor = "#ffffff";
+        let penSize = 5;
+        let eraserMode = false;
+
+        let undoStack = [];
+        let redoStack = [];
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight - 100;
+
+        function saveState() {
+            undoStack.push(canvas.toDataURL());
+            redoStack = [];
+        }
+
+        function loadState(state) {
+            const img = new Image();
+            img.src = state;
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+        }
+
+        document.querySelectorAll(".color-button").forEach(button => {
+            button.addEventListener("click", () => {
+                currentColor = button.getAttribute("data-color");
+                rgbColor.value = currentColor;
+                if (eraserMode) {
+                    eraserMode = false;
+                    eraserButton.textContent = "Eraser";
+                    penSize = 5;
+                    penSizeInput.value = penSize;
+                }
+            });
+        });
+
+        canvas.addEventListener("mousedown", (e) => {
+            drawing = true;
+            ctx.beginPath();
+            ctx.moveTo(e.offsetX, e.offsetY);
+            saveState();
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (drawing) {
+                if (eraserMode) {
+                    ctx.clearRect(e.offsetX - penSize / 2, e.offsetY - penSize / 2, penSize, penSize);
+                } else {
+                    ctx.lineTo(e.offsetX, e.offsetY);
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = currentColor;
+                    ctx.lineWidth = penSize;
+                    ctx.stroke();
+                }
+            }
+        });
+
+        canvas.addEventListener("mouseup", () => {
+            drawing = false;
+            ctx.closePath();
+        });
+
+        canvas.addEventListener("mouseout", () => {
+            drawing = false;
+            ctx.closePath();
+        });
+
+        function clearCanvas(){
+            saveState();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        };
+
+        clearButton.addEventListener("click", clearCanvas);
+
+        undoButton.addEventListener("click", () => {
+            if (undoStack.length > 0) {
+                const lastState = undoStack.pop();
+                redoStack.push(canvas.toDataURL());
+                loadState(lastState);
+            }
+        });
+
+        redoButton.addEventListener("click", () => {
+            if (redoStack.length > 0) {
+                const redoState = redoStack.pop();
+                undoStack.push(canvas.toDataURL());
+                loadState(redoState);
+            }
+        });
+
+        rgbColor.addEventListener("input", (e) => {
+            currentColor = e.target.value;
+        });
+
+        penSizeInput.addEventListener("input", (e) => {
+            penSize = e.target.value;
+        });
+
+        eraserButton.addEventListener("click", () => {
+            eraserMode = !eraserMode;
+            if (eraserMode) {
+                penSize = 25;
+                penSizeInput.value = penSize;
+                eraserButton.textContent = "Pen";
+            } else {
+                penSize = 5;
+                penSizeInput.value = penSize;
+                eraserButton.textContent = "Eraser";
+            }
+        });
+
+        document.getElementById("calcButton").addEventListener("click", async function() {
+        canvas.toBlob(async function(blob) {
+            if (!blob) {
+                console.log("Failed to generate image blob.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("image", blob, "canvas_image.png");
+
+            try{
+                const response = await fetch("http://localhost:8000/upload_image", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.status === "error" && result.message === "Canvas is empty!") {
+                    alert("Please draw something before clicking calculate.");
+                    return;
+                } else if (response.ok) {
+                    clearCanvas();
+                    ctx.fillText(result, 50, 50);
+                } else {
+                    console.log("Error uploading image!");
+                }
+            }
+            catch (error) {
+                console.error("Error Uploading Image:", error);
+            }
+            }, "image/png");
+        });
+
+        window.addEventListener("resize", () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - 100;
+        });
+    </script>
+</body>
+</html>
